@@ -1,194 +1,89 @@
-# Francinette
+# R-Francinette
 
-## :exclamation: This repo is long abandoned. It's probably way out of date, and does not work on newer systems. Please seek other alternatives. :exclamation:
+A Linux/Docker compatible fork of [Francinette](https://github.com/xicodomingues/francinette), a 42 tester framework.
 
-# Also: write your own tests!!
-#
-
-An easy to use testing framework for the 42 projects.
-
-Use `francinette` or `paco` inside a project folder to run it.
+Use `raco` inside a project folder to run tests.
 
 Currently has tests for: `libft`, `ft_printf`, `get_next_line`, `minitalk` and `pipex`.
 
-`Francinette` is only tested and confirmed to work on MacOS on non ARM chips. Some testers may work on
-Linux and ARM, but I give no guaranties of any test working or even compiling.
+## Changes from upstream
 
-## :exclamation: Important note:
+This fork fixes several issues that prevent Francinette from running on Linux (glibc/Docker):
 
-If you have little to no experience programming, I highly highly highly recommend that you write
-your own tests first. For example, for `ft_split` try to write a main that tests that your code
-works in most cases. It is also useful to think about corner cases, like what should it return
-if the string is `""` or `"   "` or `"word"`. Don't rely just on `francinette` or other tests.
+- **malloc mock fix (fsoares)**: Replace `dlsym(RTLD_NEXT, "malloc")` with `__libc_malloc` / `__libc_free` to avoid infinite recursion on glibc (glibc's `dlsym` internally calls `malloc`)
+- **malloc mock fix (printfTester)**: Same `__libc_malloc` fix for Tripouille's printfTester leak checker, plus `in_hook` guard to prevent `std::vector::push_back` → `malloc` recursion
+- **leak_check_start marker (fsoares)**: Track only allocations made after ft_printf starts, avoiding false leak reports from glibc's internal stdio buffer allocations
+- **pexpect fallback (BaseExecutor)**: Add subprocess.Popen fallback when `pexpect.spawn` fails in Docker containers (no pty available)
+- **ASan removal (fsoares)**: Remove `-fsanitize=address` which conflicts with `__libc_malloc` on Linux
 
-### :warning: Write your own tests, It's a very essential part of programming. :warning:
+## Docker Installation (Dockerfile)
 
-## Table of Contents
-1. [Purpose](#purpose)
-2. [Install](#install)
-3. [Update](#update)
-4. [Running](#Running)
-5. [Uninstall](#uninstall)
-6. [FAQ](#faq)
-7. [Acknowledgments](#acknowledgments)
+Add the following to your Dockerfile (Ubuntu 22.04):
 
+```dockerfile
+# Dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends     python3-dev python3-venv libbsd-dev libncurses-dev     && rm -rf /var/lib/apt/lists/*
 
-## Purpose:
+# Clone and setup
+RUN git clone --recursive https://github.com/sudolifeagain/R-Francinette.git /root/francinette &&     cd /root/francinette &&     bash bin/post_install.sh &&     python3 -m venv venv &&     . venv/bin/activate &&     pip3 install -r requirements.txt
 
-This is designed to function as a kind of `moulinette` that you can execute in local.
+# Environment
+ENV TERM=xterm
 
-That means that by executing `francinette` it will check `norminette`, compile the
-code and execute the tests.
-
-You can use it as a local test battery, to test your code.
-
-#### Example execution:
-
-![Example Image](doc/example.png)
-
-
-## Install:
-Francinette has an automatic installer.
-
-Copy the line bellow to your console and execute it. It will automatically download the repo,
-create the necessary folders and alias, and install a python virtual environment dedicated to
-running this tool.
-
-In linux it will also download and install the necessary packages for it to run. It needs
-admin permission to do that.
-
-```
-bash -c "$(curl -fsSL https://raw.github.com/xicodomingues/francinette/master/bin/install.sh)"
+# Alias
+RUN echo 'alias raco=/root/francinette/tester.sh' >> /root/.zshrc &&     echo 'alias raco=/root/francinette/tester.sh' >> /root/.bashrc
 ```
 
-The francinette folder will be under your `$HOME` directory (`/Users/<your_username>/`)
+Then mount your project workspace and run:
 
-
-## Update:
-Normally francinette will prompt you when there is a new version, and you can then update it.
-
-You can also force it from francinette itself:
-
-```
-~ $> francinette -u              # Forces francinette to update
+```bash
+cd /path/to/your/printf   # or libft, get_next_line, etc.
+raco
 ```
 
-If the above does not work you can also execute the command bellow:
+## Manual Installation (Linux)
 
-```
-bash -c "$(curl -fsSL https://raw.github.com/xicodomingues/francinette/master/bin/update.sh)"
-```
+```bash
+# Install dependencies (Ubuntu/Debian)
+sudo apt update
+sudo apt install -y gcc clang python3-dev python3-pip python3-venv libbsd-dev libncurses-dev valgrind
 
+# Clone
+git clone --recursive https://github.com/sudolifeagain/R-Francinette.git ~/francinette
 
-## Running:
+# Apply Linux patches
+bash ~/francinette/bin/post_install.sh
 
-If you are on a root of a project, `francinette` should be able to tell which project
-it is and execute the corresponding tests.
+# Setup Python venv
+cd ~/francinette
+python3 -m venv venv
+. venv/bin/activate
+pip3 install -r requirements.txt
 
-You can also use the shorter version of the command: `paco`
-
-To see all the available options execute `paco -h`
-
-```
-/C00 $> francinette                  # Execute the tests for C00
-
-/C00/ex00 $> francinette             # Execute only the tests for ex00 in C00
-
-/libft $> francinette                # Execute the tests for libft
-
-~ $> francinette -h                  # Shows the help message
-
-libft $> paco memset isalpha memcpy  # Executes only the specified tests
+# Add alias to your shell config
+echo 'alias raco=~/francinette/tester.sh' >> ~/.bashrc
+source ~/.bashrc
 ```
 
-The name of the folder is not important. What is important is that you have a `Makefile`
-that contains the name of the project (for example `libft`), or the expected delivery files. 
-If there is no `Makefile` or delivery files are not present `francinette` will not know 
-what project to execute.
+## Running
 
-```
-~ $> francinette git@repo42.com/intra-uuid-234
-```
+Run `raco` in a project directory that contains a `Makefile`:
 
-This command clones the git repository present in `git@repo42.com/intra-uuid-234` into the
-current folder and executes the corresponding tests
+```bash
+cd ~/your-project/libft
+raco                          # Run all tests
 
-All the files are copied to the folder `~/francinette/temp/<project>`. In here is where the
-norminette is checked, the code compiled and the tests executed. Normally you do not need to
-access this directory for anything. But if you run into unexpected problems, this is where
-the magic happens.
-
-Log files can be found in: `~/francinette/logs`
-
-
-## Uninstall
-
-To uninstall `francinette` delete the `francinette` folder. It should be located under your
-`$HOME` directory (`/Users/<your_username>/` or `/home/<your_username>/`)
-
-You also need to remove the automatically created aliases. For that open your `~/.zshrc` 
-file and delete the lines:
-
-```
-alias francinette="$HOME"/francinette/tester.sh
-alias paco="$HOME"/francinette/tester.sh
+raco memset isalpha memcpy    # Run specific tests only
 ```
 
-## FAQ
-
-If you have any questions you can create an issue or reach me on slack under `fsoares-`
-
-#### I'm more advanced than the tests you have available. When are you adding more tests?
-
-When I reach that exercise or project. You can also add them. For that you need to create a
-`ProjectTester.py` file. and change the function `guess_project` in `main.py` to recognize
-the project.
-
-#### This test that you put up is incorrect!
-
-Please create a new github issue, indicating for what exercise which test fails, and a
-description of what you think is wrong. You can also try to fix it and create a pull request
-for that change!
-
-#### What is NULL_CHECK in strict?
-
-This is a way to test if you are protecting your `malloc` calls. This means that it will make
-every call to `malloc` fail and return `NULL` instead of a newly allocated pointer. You need
-to take this into account when programming so that you don't get segmentation faults.
-
-#### The tester for get_next_line is giving me Timeout errors
-
-This is something that is very common. My tester will get slower for every malloc that you do, so if
-you do a lot of mallocs it will probably timeout.
-
-If it timeouts while in the strict mode, don't worry, this one is very very inefficient. I have
-plans to change some things to not make it so horrible, but for the time being, don't worry if
-it gives a Timeout.
-
-## Troubleshooting
-
-#### I've installed francinette, but when I try to execute it I get the message: `command not found: francinette`
-
-In the install script I try to set two alias to for `francinette`: `francinette` and `paco`. 
-If you are in MacOS I do that by adding two lines to the `.zshrc` file, and to `.bashrc` in 
-linux. If by some chance you are using other shell, or for some other reason it does not work, 
-You can try to set the aliases yourself, by adding:
-
-```
-alias francinette="$HOME"/francinette/tester.sh
-alias paco="$HOME"/francinette/tester.sh
-```
-
-Now it should work. If it does not, don't be afraid to contact me.
+The tester auto-detects the project type from the `Makefile` (e.g., `NAME = libftprintf.a` → ft_printf tests).
 
 ## Acknowledgments
 
-* To 42 for providing me this opportunity
-* To [Tripouille](https://github.com/Tripouille) for [libftTester](https://github.com/Tripouille/libftTester), [gnlTester](https://github.com/Tripouille/gnlTester) and [printfTester](https://github.com/Tripouille/printfTester)
-* To [jtoty](https://github.com/jtoty) and [y3ll0w42](https://github.com/y3ll0w42) for [libft-war-machine](https://github.com/y3ll0w42/libft-war-machine)
-* To [alelievr](https://github.com/alelievr) for [libft-unit-test](https://github.com/alelievr/libft-unit-test) and [printf-unit-test](https://github.com/alelievr/printf-unit-test)
-* To [cacharle](https://github.com/cacharle) for [ft_printf_test](https://github.com/cacharle/ft_printf_test)
-* To [ombhd](https://github.com/ombhd) for [Cleaner_42](https://github.com/ombhd/Cleaner_42)
-* To [arsalas](https://github.com/arsalas) for the help in the minitalk tester
-* To [vfurmane](https://github.com/vfurmane) for [pipex-tester](https://github.com/vfurmane/pipex-tester)
-* To [gmarcha](https://github.com/gmarcha) for [pipexMedic](https://github.com/gmarcha/pipexMedic)
+* [xicodomingues/francinette](https://github.com/xicodomingues/francinette) - Original project
+* [Tripouille](https://github.com/Tripouille) - libftTester, gnlTester, printfTester
+* [jtoty](https://github.com/jtoty) / [y3ll0w42](https://github.com/y3ll0w42) - libft-war-machine
+* [alelievr](https://github.com/alelievr) - libft-unit-test, printf-unit-test
+* [cacharle](https://github.com/cacharle) - ft_printf_test
+* [vfurmane](https://github.com/vfurmane) - pipex-tester
+* [gmarcha](https://github.com/gmarcha) - pipexMedic
