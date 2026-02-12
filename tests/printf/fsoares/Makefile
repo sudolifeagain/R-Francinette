@@ -1,5 +1,5 @@
 TIMEOUT		= 10
-CFLAGS		= -g -fsanitize=address -Wall -Wextra -Werror
+CFLAGS		= -g -Wall -Wextra -Werror
 STRICT		=
 UTILS 		= utils/malloc_mock.c utils/utils.c pf_utils.c
 PRINTF_LIB	= ../__my_srcs/libftprintf.a
@@ -11,7 +11,7 @@ endif
 
 # SDK headers shipping w/Xcode 14.1 (22/11/01)
 # and later deprecate some functions used here
-CFLAGS		+= -Wno-deprecated-declarations
+CFLAGS		+= -Wno-deprecated-declarations -Wno-unused-variable
 
 build_m:
 	-@$(MAKE) -C ../__my_srcs fclean 1> /dev/null

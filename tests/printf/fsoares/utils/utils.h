@@ -208,6 +208,7 @@ char *my_strndup(const char *s1, size_t size);
 int check_mem_size(void *ptr, size_t expected_size);
 
 int reset_malloc_mock();
+void set_leak_check_start(void);
 size_t get_malloc_size(void *ptr);
 void malloc_set_result(void *res);
 void malloc_set_null(int nth);

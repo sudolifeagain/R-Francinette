@@ -313,7 +313,8 @@ int error(const char *format, ...)
 void add_to_error_file()
 {
 	char buf[1024];
-	fclose(errors_file);
+	if (errors_file)
+		fclose(errors_file);
 
 	FILE *file, *final_file;
 	size_t nread;

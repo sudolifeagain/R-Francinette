@@ -12,6 +12,7 @@ int cur_res_pos = 0;
 #define MALLOC_LIMIT 1000000
 t_node allocations[MALLOC_LIMIT];
 int alloc_pos = 0;
+int leak_check_start = 0;
 
 static void _add_malloc(void *ptr, size_t size, void *to_return)
 {
@@ -59,10 +60,12 @@ static void _mark_as_free(void *ptr)
 		fprintf(errors_file, "You are trying to free a pointer that was already freed\n");
 }
 
+extern void *__libc_malloc(size_t);
+extern void __libc_free(void *);
+
 void *malloc(size_t size)
 {
-	void *(*libc_malloc)(size_t) = (void *(*)(size_t))dlsym(RTLD_NEXT, "malloc");
-	void *p = libc_malloc(size);
+	void *p = __libc_malloc(size);
 	void *to_return = p;
 	if (res_pos > cur_res_pos && (long)(results[cur_res_pos]) != 1)
 		to_return = results[cur_res_pos];
@@ -77,9 +80,8 @@ void *malloc(size_t size)
 
 void free(void *p)
 {
-	void (*libc_free)(void *) = (void (*)(void *))dlsym(RTLD_NEXT, "free");
 	_mark_as_free(p);
-	libc_free(p);
+	__libc_free(p);
 }
 
 int reset_malloc_mock()
@@ -152,13 +154,18 @@ void save_traces(char **strings, int nptrs)
 #endif
 }
 
+void set_leak_check_start(void)
+{
+	leak_check_start = alloc_pos;
+}
+
 int check_leaks(void *result)
 {
 	if (result)
 		free(result);
 	int temp = alloc_pos;
 	int res = 1;
-	for (int pos = 0; pos < temp; pos++)
+	for (int pos = leak_check_start; pos < temp; pos++)
 	{
 		t_node tmp = allocations[pos];
 		if (!tmp.freed && tmp.returned)

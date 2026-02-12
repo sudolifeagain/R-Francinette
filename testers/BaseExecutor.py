@@ -80,8 +80,28 @@ class BaseExecutor:
 			return to_output
 
 		logger.info(f"on dir {os.getcwd()}")
-		p = pexpect.spawn(command)
-		p.interact(output_filter=parse_out)
+		try:
+			p = pexpect.spawn(command)
+			p.interact(output_filter=parse_out)
+		except Exception:
+			logger.info("pexpect failed, falling back to subprocess")
+			env = os.environ.copy()
+			if 'TERM' not in env:
+				env['TERM'] = 'xterm'
+			proc = subprocess.Popen(
+				command, shell=True,
+				stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+				env=env
+			)
+			while True:
+				chunk = proc.stdout.read(4096)
+				if not chunk:
+					break
+				filtered = parse_out(chunk)
+				if filtered:
+					sys.stdout.buffer.write(filtered)
+					sys.stdout.buffer.flush()
+			proc.wait()
 		print(TC.NC, end="")
 		return remove_ansi_colors(output)
 

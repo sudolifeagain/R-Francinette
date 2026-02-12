@@ -82,6 +82,7 @@
 			error("Internal problem, please run the tests again");             \
 			exit(-1);                                                          \
 		}                                                                      \
+		set_leak_check_start();                                                \
 		int actual_ret = ft_##fn_call;                                         \
 		fflush(stdout);                                                        \
 		write(1, "", 1);                                                       \
